@@ -1,4 +1,4 @@
-send_heartbeat: true
+send_heartbeat: false
 
 properties:
   - name: "MAA Riverside"
