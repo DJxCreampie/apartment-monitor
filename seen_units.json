@@ -1,1 +1,382 @@
-{}
+{
+  "https://www.maac.com/available-apartments/?propertyId=611791": {
+    "116": {
+      "unit": "116",
+      "beds": "",
+      "baths": "",
+      "sqft": "",
+      "floor": "2nd Floor",
+      "move_in": "05/18 - 05/21",
+      "rent": "$1,485"
+    },
+    "125": {
+      "unit": "125",
+      "beds": "",
+      "baths": "",
+      "sqft": "",
+      "floor": "2nd Floor",
+      "move_in": "07/16 - 07/19",
+      "rent": "$2,720"
+    },
+    "130": {
+      "unit": "130",
+      "beds": "",
+      "baths": "",
+      "sqft": "",
+      "floor": "",
+      "move_in": "07/10 - 07/13",
+      "rent": "$1,565"
+    },
+    "1311": {
+      "unit": "1311",
+      "beds": "",
+      "baths": "",
+      "sqft": "",
+      "floor": "3rd Floor",
+      "move_in": "05/06 - 05/09",
+      "rent": "$1,824"
+    },
+    "1315": {
+      "unit": "1315",
+      "beds": "",
+      "baths": "",
+      "sqft": "",
+      "floor": "3rd Floor",
+      "move_in": "05/06 - 05/09",
+      "rent": "$2,169"
+    },
+    "1321": {
+      "unit": "1321",
+      "beds": "",
+      "baths": "",
+      "sqft": "",
+      "floor": "3rd Floor",
+      "move_in": "05/21 - 05/24",
+      "rent": "$1,684"
+    },
+    "137": {
+      "unit": "137",
+      "beds": "",
+      "baths": "",
+      "sqft": "",
+      "floor": "1st Floor",
+      "move_in": "06/09 - 06/12",
+      "rent": "$1,545"
+    },
+    "1405": {
+      "unit": "1405",
+      "beds": "",
+      "baths": "",
+      "sqft": "",
+      "floor": "4th Floor",
+      "move_in": "05/11 - 05/14",
+      "rent": "$1,695"
+    },
+    "1417": {
+      "unit": "1417",
+      "beds": "",
+      "baths": "",
+      "sqft": "",
+      "floor": "4th Floor",
+      "move_in": "07/31 - 08/03",
+      "rent": "$1,770"
+    },
+    "1431": {
+      "unit": "1431",
+      "beds": "",
+      "baths": "",
+      "sqft": "",
+      "floor": "4th Floor",
+      "move_in": "06/18 - 06/21",
+      "rent": "$1,875"
+    },
+    "146": {
+      "unit": "146",
+      "beds": "",
+      "baths": "",
+      "sqft": "",
+      "floor": "2nd Floor",
+      "move_in": "07/16 - 07/19",
+      "rent": "$1,745"
+    },
+    "155": {
+      "unit": "155",
+      "beds": "",
+      "baths": "",
+      "sqft": "",
+      "floor": "1st Floor",
+      "move_in": "06/09 - 06/12",
+      "rent": "$1,750"
+    },
+    "156": {
+      "unit": "156",
+      "beds": "",
+      "baths": "",
+      "sqft": "",
+      "floor": "1st Floor",
+      "move_in": "06/24 - 06/27",
+      "rent": "$1,615"
+    },
+    "160": {
+      "unit": "160",
+      "beds": "",
+      "baths": "",
+      "sqft": "",
+      "floor": "3rd Floor",
+      "move_in": "07/10 - 07/13",
+      "rent": "$2,284"
+    },
+    "164": {
+      "unit": "164",
+      "beds": "",
+      "baths": "",
+      "sqft": "",
+      "floor": "2nd Floor",
+      "move_in": "05/06 - 05/09",
+      "rent": "$2,220"
+    },
+    "167": {
+      "unit": "167",
+      "beds": "",
+      "baths": "",
+      "sqft": "",
+      "floor": "1st Floor",
+      "move_in": "07/10 - 07/13",
+      "rent": "$2,420"
+    },
+    "179": {
+      "unit": "179",
+      "beds": "",
+      "baths": "",
+      "sqft": "",
+      "floor": "3rd Floor",
+      "move_in": "07/13 - 07/16",
+      "rent": "$2,264"
+    },
+    "201": {
+      "unit": "201",
+      "beds": "",
+      "baths": "",
+      "sqft": "",
+      "floor": "2nd Floor",
+      "move_in": "06/20 - 06/23",
+      "rent": "$2,340"
+    },
+    "2108": {
+      "unit": "2108",
+      "beds": "",
+      "baths": "",
+      "sqft": "",
+      "floor": "1st Floor",
+      "move_in": "07/17 - 07/20",
+      "rent": "$1,645"
+    },
+    "2119": {
+      "unit": "2119",
+      "beds": "",
+      "baths": "",
+      "sqft": "",
+      "floor": "1st Floor",
+      "move_in": "05/18 - 05/21",
+      "rent": "$1,675"
+    },
+    "2121": {
+      "unit": "2121",
+      "beds": "",
+      "baths": "",
+      "sqft": "",
+      "floor": "1st Floor",
+      "move_in": "05/06 - 05/09",
+      "rent": "$1,510"
+    },
+    "220": {
+      "unit": "220",
+      "beds": "",
+      "baths": "",
+      "sqft": "",
+      "floor": "2nd Floor",
+      "move_in": "06/09 - 06/12",
+      "rent": "$2,360"
+    },
+    "2217": {
+      "unit": "2217",
+      "beds": "",
+      "baths": "",
+      "sqft": "",
+      "floor": "2nd Floor",
+      "move_in": "07/20 - 07/23",
+      "rent": "$1,625"
+    },
+    "2222": {
+      "unit": "2222",
+      "beds": "",
+      "baths": "",
+      "sqft": "",
+      "floor": "2nd Floor",
+      "move_in": "05/11 - 05/14",
+      "rent": "$1,685"
+    },
+    "223": {
+      "unit": "223",
+      "beds": "",
+      "baths": "",
+      "sqft": "",
+      "floor": "2nd Floor",
+      "move_in": "07/06 - 07/09",
+      "rent": "$1,865"
+    },
+    "2304": {
+      "unit": "2304",
+      "beds": "",
+      "baths": "",
+      "sqft": "",
+      "floor": "3rd Floor",
+      "move_in": "06/30 - 07/03",
+      "rent": "$2,569"
+    },
+    "2315": {
+      "unit": "2315",
+      "beds": "",
+      "baths": "",
+      "sqft": "",
+      "floor": "3rd Floor",
+      "move_in": "08/05 - 08/08",
+      "rent": "$3,240"
+    },
+    "233": {
+      "unit": "233",
+      "beds": "",
+      "baths": "",
+      "sqft": "",
+      "floor": "2nd Floor",
+      "move_in": "07/16 - 07/19",
+      "rent": "$2,820"
+    },
+    "249": {
+      "unit": "249",
+      "beds": "",
+      "baths": "",
+      "sqft": "",
+      "floor": "2nd Floor",
+      "move_in": "06/18 - 06/21",
+      "rent": "$2,865"
+    },
+    "282": {
+      "unit": "282",
+      "beds": "",
+      "baths": "",
+      "sqft": "",
+      "floor": "1st Floor",
+      "move_in": "05/21 - 05/24",
+      "rent": "$1,615"
+    },
+    "283": {
+      "unit": "283",
+      "beds": "",
+      "baths": "",
+      "sqft": "",
+      "floor": "2nd Floor",
+      "move_in": "06/09 - 06/12",
+      "rent": "$2,695"
+    },
+    "291": {
+      "unit": "291",
+      "beds": "",
+      "baths": "",
+      "sqft": "",
+      "floor": "3rd Floor",
+      "move_in": "07/09 - 07/12",
+      "rent": "$2,274"
+    },
+    "343": {
+      "unit": "343",
+      "beds": "",
+      "baths": "",
+      "sqft": "",
+      "floor": "2nd Floor",
+      "move_in": "06/23 - 06/26",
+      "rent": "$1,760"
+    },
+    "348": {
+      "unit": "348",
+      "beds": "",
+      "baths": "",
+      "sqft": "",
+      "floor": "2nd Floor",
+      "move_in": "06/09 - 06/12",
+      "rent": "$1,535"
+    },
+    "349": {
+      "unit": "349",
+      "beds": "",
+      "baths": "",
+      "sqft": "",
+      "floor": "2nd Floor",
+      "move_in": "05/26 - 05/29",
+      "rent": "$1,765"
+    },
+    "362": {
+      "unit": "362",
+      "beds": "",
+      "baths": "",
+      "sqft": "",
+      "floor": "",
+      "move_in": "06/09 - 06/12",
+      "rent": "$2,850"
+    },
+    "363": {
+      "unit": "363",
+      "beds": "",
+      "baths": "",
+      "sqft": "",
+      "floor": "2nd Floor",
+      "move_in": "07/21 - 07/24",
+      "rent": "$2,830"
+    },
+    "371": {
+      "unit": "371",
+      "beds": "",
+      "baths": "",
+      "sqft": "",
+      "floor": "2nd Floor",
+      "move_in": "07/06 - 07/09",
+      "rent": "$3,575"
+    },
+    "386": {
+      "unit": "386",
+      "beds": "",
+      "baths": "",
+      "sqft": "",
+      "floor": "2nd Floor",
+      "move_in": "07/14 - 07/17",
+      "rent": "$2,270"
+    },
+    "409": {
+      "unit": "409",
+      "beds": "",
+      "baths": "",
+      "sqft": "",
+      "floor": "1st Floor",
+      "move_in": "05/11 - 05/14",
+      "rent": "$1,485"
+    },
+    "411": {
+      "unit": "411",
+      "beds": "",
+      "baths": "",
+      "sqft": "",
+      "floor": "1st Floor",
+      "move_in": "05/18 - 05/21",
+      "rent": "$1,450"
+    },
+    "420": {
+      "unit": "420",
+      "beds": "",
+      "baths": "",
+      "sqft": "",
+      "floor": "2nd Floor",
+      "move_in": "05/06 - 05/09",
+      "rent": "$1,790"
+    }
+  }
+}
