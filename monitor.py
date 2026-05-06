@@ -19,6 +19,12 @@ DISCORD_MAX_MESSAGE_LEN = 1900
 DISCORD_INTER_MESSAGE_DELAY_SECONDS = 0.7
 FALSE_POSITIVES = {"details", "features", "home", "rental", "until"}
 SUSPICIOUS_REMOVAL_RATIO = 0.80
+BEDS_PATTERN = re.compile(r"^\d+\s+Beds?$$", re.IGNORECASE)
+BATHS_PATTERN = re.compile(r"^\d+(?:\.\d+)?\s+Baths?$$", re.IGNORECASE)
+SQFT_PATTERN = re.compile(r"^[\d,]+\s+sq\s*ft$$", re.IGNORECASE)
+FLOOR_PATTERN = re.compile(r"^(?:\d+(?:st|nd|rd|th)\s+Floor|Terrace Level|Ground Floor)$$", re.IGNORECASE)
+MOVE_IN_PATTERN = re.compile(r"^\d{2}/\d{2}\s*-\s*\d{2}/\d{2}$$")
+RENT_PATTERN = re.compile(r"\$[\d,]+")
 
 
 def load_config() -> Tuple[List[dict], bool]:
@@ -189,25 +195,30 @@ def parse_structured_units(page_text: str, unit_regex: str) -> Dict[str, dict]:
                     if low == "additional unit features":
                         break
 
-                    if not rec["beds"] and re.match(r"^\d+\s+Beds?$", lines[j], re.IGNORECASE):
+                    if not rec["beds"] and BEDS_PATTERN.match(lines[j]):
                         rec["beds"] = lines[j]
-                    elif not rec["baths"] and re.match(r"^\d+\s+Baths?$", lines[j], re.IGNORECASE):
+                    elif not rec["baths"] and BATHS_PATTERN.match(lines[j]):
                         rec["baths"] = lines[j]
-                    elif not rec["sqft"] and re.match(r"^[\d,]+\s+sq\s*ft$", lines[j], re.IGNORECASE):
+                    elif not rec["sqft"] and SQFT_PATTERN.match(lines[j]):
                         rec["sqft"] = lines[j]
                     elif low == "floor/bld" and j + 1 < len(lines):
-                        rec["floor"] = lines[j + 1]
+                        floor_candidate = lines[j + 1].strip()
+                        if FLOOR_PATTERN.match(floor_candidate):
+                            rec["floor"] = floor_candidate
                         j += 1
                     elif low.startswith("move-in") and j + 1 < len(lines):
-                        rec["move_in"] = lines[j + 1]
+                        move_in_candidate = lines[j + 1].strip()
+                        if MOVE_IN_PATTERN.match(move_in_candidate):
+                            rec["move_in"] = move_in_candidate
                         j += 1
                     elif low == "monthly" and j + 1 < len(lines):
                         nxt = lines[j + 1]
-                        match = re.search(r"\$[\d,]+", nxt)
-                        rec["rent"] = match.group(0) if match else nxt
+                        match = RENT_PATTERN.search(nxt)
+                        if match:
+                            rec["rent"] = match.group(0)
                         j += 1
                     elif not rec["rent"]:
-                        rent_match = re.search(r"\$[\d,]+", lines[j])
+                        rent_match = RENT_PATTERN.search(lines[j])
                         if rent_match:
                             rec["rent"] = rent_match.group(0)
 
@@ -263,7 +274,7 @@ def truncate_field(value: str, max_len: int = 180) -> str:
 
 def build_unit_event_message(event_type: str, record: dict, previous_rent: str = "", current_rent: str = "") -> str:
     title = f"__**{event_type}**__"
-    lines = [title, ""]
+    lines = [title]
 
     unit = truncate_field(record.get("unit", ""), 64)
     beds = truncate_field(record.get("beds", ""))
