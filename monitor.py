@@ -15,7 +15,8 @@ from playwright.sync_api import sync_playwright
 CONFIG_PATH = Path("config.yaml")
 SEEN_PATH = Path("seen_units.json")
 DEFAULT_UNIT_REGEX = r"\\b(?:Unit|Apt|Apartment)\\s*#?\\s*([A-Za-z0-9-]{2,8})\\b"
-DISCORD_MAX_MESSAGE_LEN = 2000
+DISCORD_MAX_MESSAGE_LEN = 1900
+DISCORD_INTER_MESSAGE_DELAY_SECONDS = 0.7
 FALSE_POSITIVES = {"details", "features", "home", "rental", "until"}
 SUSPICIOUS_REMOVAL_RATIO = 0.80
 
@@ -250,63 +251,46 @@ def normalize_rent_value(rent: str) -> str:
     return m.group(1).replace(',', '')
 
 
-def format_rent_change_line(prior_record: dict, current_record: dict) -> str:
-    old_rent = str(prior_record.get('rent', '')).strip()
-    new_rent = str(current_record.get('rent', '')).strip()
+def truncate_field(value: str, max_len: int = 180) -> str:
+    value = str(value or "").strip()
+    if len(value) <= max_len:
+        return value
+    return value[: max_len - 3].rstrip() + "..."
 
-    merged = dict(current_record)
-    for key in ['beds', 'baths', 'sqft', 'floor', 'move_in']:
-        if not merged.get(key):
-            merged[key] = prior_record.get(key, '')
 
-    parts = [f"Unit {merged.get('unit', '')}".strip()]
-    if merged.get('beds'):
-        parts.append(merged['beds'])
-    if merged.get('baths'):
-        parts.append(merged['baths'])
-    if merged.get('sqft'):
-        parts.append(merged['sqft'])
-    if merged.get('floor'):
-        parts.append(merged['floor'])
-    if merged.get('move_in'):
-        parts.append(f"Move-in: {merged['move_in']}")
-    parts.append(f"Rent: {old_rent} → {new_rent}")
-    return " | ".join(part for part in parts if part and part != 'Unit')
+def build_unit_event_message(event_type: str, record: dict, previous_rent: str = "", current_rent: str = "") -> str:
+    lines = [f"TYPE: {event_type}", "**Details**"]
 
-def build_discord_message(property_name: str, new_unit_records: List[dict], removed_unit_records: List[dict], rent_change_lines: List[str], url: str) -> str:
-    header = f"Availability changed at {property_name}\n\n"
-    url_line = f"\n\nURL: {url}"
+    unit = truncate_field(record.get("unit", ""), 64)
+    beds = truncate_field(record.get("beds", ""))
+    baths = truncate_field(record.get("baths", ""))
+    sqft = truncate_field(record.get("sqft", ""))
+    floor = truncate_field(record.get("floor", ""))
+    move_in = truncate_field(record.get("move_in", ""))
+    rent = truncate_field(record.get("rent", ""), 80)
 
-    def clamp_section(title: str, records: List[dict], current_len: int) -> str:
-        if not records:
-            return f"{title}:\nNone"
+    lines.append(f"Unit: {unit or 'Unknown'}")
+    if beds:
+        lines.append(f"Beds: {beds}")
+    if baths:
+        lines.append(f"Baths: {baths}")
+    if sqft:
+        lines.append(f"Sq Ft: {sqft}")
+    if floor:
+        lines.append(f"Floor: {floor}")
+    if move_in:
+        lines.append(f"Move-In: {move_in}")
 
-        selected_lines: List[str] = []
-        for record in records:
-            line = format_unit_line(record)
-            candidate = "\n".join(selected_lines + [line])
-            section = f"{title}:\n{candidate}"
-            if current_len + len(section) + len(url_line) <= DISCORD_MAX_MESSAGE_LEN:
-                selected_lines.append(line)
-            else:
-                break
+    if event_type == "Rent Change":
+        lines.append(f"Previous Rent: {truncate_field(previous_rent, 80)}")
+        lines.append(f"Current Rent: {truncate_field(current_rent, 80)}")
+    elif rent:
+        lines.append(f"Rent: {rent}")
 
-        omitted = len(records) - len(selected_lines)
-        body = "\n".join(selected_lines) if selected_lines else "None"
-        if omitted > 0:
-            body += f"\n(+{omitted} more)"
-        return f"{title}:\n{body}"
-
-    new_section = clamp_section("New units", new_unit_records, len(header))
-    removed_section = clamp_section("Removed units", removed_unit_records, len(header) + len(new_section) + 2)
-
-    if rent_change_lines:
-        rent_body = "\n".join(rent_change_lines)
-    else:
-        rent_body = "None"
-    rent_section = f"Rent changes:\n{rent_body}"
-
-    return f"{header}{new_section}\n\n{removed_section}\n\n{rent_section}{url_line}"
+    message = "\n".join(lines)
+    if len(message) > DISCORD_MAX_MESSAGE_LEN:
+        message = message[: DISCORD_MAX_MESSAGE_LEN - 3].rstrip() + "..."
+    return message
 
 
 def send_discord_message(webhook_url: str, message: str, context: str) -> None:
@@ -345,9 +329,33 @@ def send_discord_message(webhook_url: str, message: str, context: str) -> None:
         return
 
 
-def send_discord_alert(webhook_url: str, property_name: str, new_unit_records: List[dict], removed_unit_records: List[dict], rent_change_lines: List[str], url: str) -> None:
-    message = build_discord_message(property_name, new_unit_records, removed_unit_records, rent_change_lines, url)
-    send_discord_message(webhook_url, message, f"property {property_name}")
+def send_discord_events(
+    webhook_url: str,
+    property_name: str,
+    new_unit_records: List[dict],
+    removed_unit_records: List[dict],
+    rent_change_events: List[dict],
+    url: str,
+) -> None:
+    messages: List[tuple[str, str]] = []
+
+    for record in new_unit_records:
+        messages.append((build_unit_event_message("Addition", record), f"addition {property_name}"))
+
+    for record in removed_unit_records:
+        messages.append((build_unit_event_message("Removal", record), f"removal {property_name}"))
+
+    for event in rent_change_events:
+        messages.append((
+            build_unit_event_message("Rent Change", event["record"], event["previous_rent"], event["current_rent"]),
+            f"rent-change {property_name}",
+        ))
+
+    messages.append((f"URL used for analysis:\n{url}", f"url {property_name}"))
+
+    for message, context in messages:
+        send_discord_message(webhook_url, message, context)
+        time.sleep(DISCORD_INTER_MESSAGE_DELAY_SECONDS)
 
 
 def build_heartbeat_message(property_count: int) -> str:
@@ -414,7 +422,7 @@ def main() -> int:
         new_units = sorted(current_units - prior_units)
         removed_units = sorted(prior_units - current_units)
 
-        rent_change_lines: List[str] = []
+        rent_change_events: List[dict] = []
         common_units = sorted(current_units & prior_units)
         for unit in common_units:
             prior_record = prior_records[unit]
@@ -424,7 +432,15 @@ def main() -> int:
             if not prior_rent_norm or not current_rent_norm:
                 continue
             if prior_rent_norm != current_rent_norm:
-                rent_change_lines.append(format_rent_change_line(prior_record, current_record))
+                merged = dict(current_record)
+                for key in ["beds", "baths", "sqft", "floor", "move_in"]:
+                    if not merged.get(key):
+                        merged[key] = prior_record.get(key, "")
+                rent_change_events.append({
+                    "record": merged,
+                    "previous_rent": str(prior_record.get("rent", "")).strip(),
+                    "current_rent": str(current_record.get("rent", "")).strip(),
+                })
 
         suspicious_mass_removal = False
         if prior_units:
@@ -437,12 +453,12 @@ def main() -> int:
                 send_anomaly_warning(webhook_url, name, url)
             continue
 
-        if new_units or removed_units or rent_change_lines:
+        if new_units or removed_units or rent_change_events:
             had_unit_changes = True
             new_records_for_alert = [current_records[unit] for unit in new_units]
             removed_records_for_alert = [prior_records[unit] for unit in removed_units]
             if webhook_url:
-                send_discord_alert(webhook_url, name, new_records_for_alert, removed_records_for_alert, rent_change_lines, url)
+                send_discord_events(webhook_url, name, new_records_for_alert, removed_records_for_alert, rent_change_events, url)
 
         seen_units_by_url[url] = current_records
 
