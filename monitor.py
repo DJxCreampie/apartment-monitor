@@ -177,56 +177,78 @@ def detect_units(page_text: str, unit_regex: str) -> Set[str]:
 
 
 def parse_structured_units(page_text: str, unit_regex: str) -> Dict[str, dict]:
-    lines = [ln.strip() for ln in page_text.splitlines() if ln.strip()]
+    lines = [re.sub(r"\s+", " ", ln).strip() for ln in page_text.splitlines() if ln.strip()]
     units: Dict[str, dict] = {}
 
     i = 0
     while i < len(lines):
         if lines[i].lower() == "unit" and i + 1 < len(lines):
             unit_id = normalize_unit_candidate(lines[i + 1])
-            if unit_id:
-                rec = normalize_unit_record(unit_id)
-                j = i + 2
-                while j < len(lines):
-                    low = lines[j].lower()
-                    if low == "unit":
-                        break
+            if not unit_id:
+                i += 1
+                continue
 
-                    if low == "additional unit features":
-                        break
+            rec = normalize_unit_record(unit_id)
+            block_start = i + 2
+            block_end = min(len(lines), block_start + 20)
 
-                    if not rec["beds"] and BEDS_PATTERN.match(lines[j]):
-                        rec["beds"] = lines[j]
-                    elif not rec["baths"] and BATHS_PATTERN.match(lines[j]):
-                        rec["baths"] = lines[j]
-                    elif not rec["sqft"] and SQFT_PATTERN.match(lines[j]):
-                        rec["sqft"] = lines[j]
-                    elif low == "floor/bld" and j + 1 < len(lines):
-                        floor_candidate = lines[j + 1].strip()
-                        if FLOOR_PATTERN.match(floor_candidate):
-                            rec["floor"] = floor_candidate
-                        j += 1
-                    elif low.startswith("move-in") and j + 1 < len(lines):
-                        move_in_candidate = lines[j + 1].strip()
-                        if MOVE_IN_PATTERN.match(move_in_candidate):
-                            rec["move_in"] = move_in_candidate
-                        j += 1
-                    elif low == "monthly" and j + 1 < len(lines):
-                        nxt = lines[j + 1]
-                        match = RENT_PATTERN.search(nxt)
-                        if match:
-                            rec["rent"] = match.group(0)
-                        j += 1
-                    elif not rec["rent"]:
-                        rent_match = RENT_PATTERN.search(lines[j])
+            j = block_start
+            while j < len(lines) and j < block_end:
+                low = lines[j].lower()
+                if low == "unit" or low == "additional unit features":
+                    break
+                j += 1
+            block_end = j
+
+            before_floor_end = block_end
+            for k in range(block_start, block_end):
+                if lines[k].lower() == "floor/bld":
+                    before_floor_end = k
+                    break
+
+            for k in range(block_start, before_floor_end):
+                line = lines[k]
+                if not rec["beds"] and BEDS_PATTERN.match(line):
+                    rec["beds"] = line
+                elif not rec["baths"] and BATHS_PATTERN.match(line):
+                    rec["baths"] = line
+                elif not rec["sqft"] and SQFT_PATTERN.match(line):
+                    rec["sqft"] = line
+
+            for k in range(block_start, block_end - 1):
+                if lines[k].lower() == "floor/bld":
+                    floor_candidate = lines[k + 1]
+                    if FLOOR_PATTERN.match(floor_candidate):
+                        rec["floor"] = floor_candidate
+                    break
+
+            for k in range(block_start, block_end - 1):
+                if lines[k].lower().startswith("move-in"):
+                    move_candidate = lines[k + 1]
+                    if MOVE_IN_PATTERN.match(move_candidate):
+                        rec["move_in"] = move_candidate
+                    break
+
+            for k in range(block_start, block_end):
+                if lines[k].lower() == "monthly":
+                    for m in range(k + 1, block_end):
+                        rent_match = RENT_PATTERN.search(lines[m])
                         if rent_match:
                             rec["rent"] = rent_match.group(0)
+                            break
+                    break
 
-                    j += 1
+            if not rec["rent"]:
+                for k in range(block_start, block_end):
+                    rent_match = RENT_PATTERN.search(lines[k])
+                    if rent_match:
+                        rec["rent"] = rent_match.group(0)
+                        break
 
-                units[unit_id] = rec
-                i = j
-                continue
+            units[unit_id] = rec
+            i = block_end
+            continue
+
         i += 1
 
     fallback_units = detect_units(page_text, unit_regex)
@@ -307,6 +329,7 @@ def build_unit_event_message(event_type: str, record: dict, previous_rent: str =
     elif rent:
         lines.append(f"Rent: {rent}")
 
+    lines.append("")
     message = "\n".join(lines)
     if len(message) > DISCORD_MAX_MESSAGE_LEN:
         message = message[: DISCORD_MAX_MESSAGE_LEN - 3].rstrip() + "..."
