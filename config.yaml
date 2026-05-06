@@ -1,0 +1,6 @@
+send_heartbeat: false
+
+properties:
+  - name: "MAA Test Property"
+    url: "https://www.maac.com/available-apartments/?propertyId=611791"
+    unit_regex: "\\b(?:Unit|Apt|Apartment)\\s*#?\\s*([A-Za-z0-9-]{2,8})\\b"
