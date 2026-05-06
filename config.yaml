@@ -1,4 +1,4 @@
-send_heartbeat: false
+send_heartbeat: true
 
 properties:
   - name: "MAA Test Property"
