@@ -186,11 +186,14 @@ def parse_structured_units(page_text: str, unit_regex: str) -> Dict[str, dict]:
                     if low == "unit":
                         break
 
-                    if not rec["beds"] and re.search(r"\bbed(s)?\b", lines[j], re.IGNORECASE):
+                    if low == "additional unit features":
+                        break
+
+                    if not rec["beds"] and re.match(r"^\d+\s+Beds?$", lines[j], re.IGNORECASE):
                         rec["beds"] = lines[j]
-                    elif not rec["baths"] and re.search(r"\bbath(s)?\b", lines[j], re.IGNORECASE):
+                    elif not rec["baths"] and re.match(r"^\d+\s+Baths?$", lines[j], re.IGNORECASE):
                         rec["baths"] = lines[j]
-                    elif not rec["sqft"] and re.search(r"sq\s*ft", lines[j], re.IGNORECASE):
+                    elif not rec["sqft"] and re.match(r"^[\d,]+\s+sq\s*ft$", lines[j], re.IGNORECASE):
                         rec["sqft"] = lines[j]
                     elif low == "floor/bld" and j + 1 < len(lines):
                         rec["floor"] = lines[j + 1]
@@ -259,7 +262,8 @@ def truncate_field(value: str, max_len: int = 180) -> str:
 
 
 def build_unit_event_message(event_type: str, record: dict, previous_rent: str = "", current_rent: str = "") -> str:
-    lines = [f"TYPE: {event_type}", "**Details**"]
+    title = f"__**{event_type}**__"
+    lines = [title, ""]
 
     unit = truncate_field(record.get("unit", ""), 64)
     beds = truncate_field(record.get("beds", ""))
@@ -269,21 +273,26 @@ def build_unit_event_message(event_type: str, record: dict, previous_rent: str =
     move_in = truncate_field(record.get("move_in", ""))
     rent = truncate_field(record.get("rent", ""), 80)
 
-    lines.append(f"Unit: {unit or 'Unknown'}")
+    if unit:
+        lines.append(f"Unit: {unit}")
     if beds:
         lines.append(f"Beds: {beds}")
     if baths:
         lines.append(f"Baths: {baths}")
     if sqft:
-        lines.append(f"Sq Ft: {sqft}")
+        lines.append(f"Sq. Ft.: {sqft}")
     if floor:
         lines.append(f"Floor: {floor}")
     if move_in:
-        lines.append(f"Move-In: {move_in}")
+        lines.append(f"Move-in: {move_in}")
 
-    if event_type == "Rent Change":
-        lines.append(f"Previous Rent: {truncate_field(previous_rent, 80)}")
-        lines.append(f"Current Rent: {truncate_field(current_rent, 80)}")
+    if event_type == "Price Change":
+        prev = truncate_field(previous_rent, 80)
+        curr = truncate_field(current_rent, 80)
+        if prev:
+            lines.append(f"Previous Rent: {prev}")
+        if curr:
+            lines.append(f"Current Rent: {curr}")
     elif rent:
         lines.append(f"Rent: {rent}")
 
@@ -347,7 +356,7 @@ def send_discord_events(
 
     for event in rent_change_events:
         messages.append((
-            build_unit_event_message("Rent Change", event["record"], event["previous_rent"], event["current_rent"]),
+            build_unit_event_message("Price Change", event["record"], event["previous_rent"], event["current_rent"]),
             f"rent-change {property_name}",
         ))
 
