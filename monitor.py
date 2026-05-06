@@ -17,6 +17,7 @@ SEEN_PATH = Path("seen_units.json")
 DEFAULT_UNIT_REGEX = r"\\b(?:Unit|Apt|Apartment)\\s*#?\\s*([A-Za-z0-9-]{2,8})\\b"
 DISCORD_MAX_MESSAGE_LEN = 2000
 FALSE_POSITIVES = {"details", "features", "home", "rental", "until"}
+SUSPICIOUS_REMOVAL_RATIO = 0.80
 
 
 def load_config() -> Tuple[List[dict], bool]:
@@ -207,6 +208,18 @@ def send_heartbeat(webhook_url: str, property_count: int) -> None:
     send_discord_message(webhook_url, message, "heartbeat")
 
 
+def build_anomaly_warning(property_name: str, url: str) -> str:
+    return (
+        f"Apartment monitor warning at {property_name}: no units were detected, but prior units existed. "
+        "Preserving previous snapshot because this may be a scrape/render failure. "
+        f"URL: {url}"
+    )
+
+
+def send_anomaly_warning(webhook_url: str, property_name: str, url: str) -> None:
+    send_discord_message(webhook_url, build_anomaly_warning(property_name, url), f"warning {property_name}")
+
+
 def main() -> int:
     webhook_url = os.getenv("DISCORD_WEBHOOK_URL", "").strip()
     if not webhook_url:
@@ -227,8 +240,32 @@ def main() -> int:
         current_units = detect_units(text, unit_regex)
 
         prior_units = seen_units_by_url.get(url, set())
+
+        if prior_units and not current_units:
+            print(f"No units detected for {name} despite existing snapshot; retrying once after 5 seconds.")
+            time.sleep(5)
+            retry_text = extract_visible_text(url)
+            current_units = detect_units(retry_text, unit_regex)
+
+            if not current_units:
+                print(f"Suspicious empty scrape for {name}; preserving previous snapshot.", file=sys.stderr)
+                if webhook_url:
+                    send_anomaly_warning(webhook_url, name, url)
+                continue
+
         new_units = sorted(current_units - prior_units)
         removed_units = sorted(prior_units - current_units)
+
+        suspicious_mass_removal = False
+        if prior_units:
+            removal_ratio = len(removed_units) / len(prior_units)
+            suspicious_mass_removal = removal_ratio > SUSPICIOUS_REMOVAL_RATIO
+
+        if suspicious_mass_removal:
+            print(f"Suspicious mass removal detected for {name}; preserving previous snapshot.", file=sys.stderr)
+            if webhook_url:
+                send_anomaly_warning(webhook_url, name, url)
+            continue
 
         if new_units or removed_units:
             had_unit_changes = True
