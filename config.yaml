@@ -1,3 +1,5 @@
+send_heartbeat: false
+
 properties:
   - name: "MAA Test Property"
     url: "https://www.maac.com/available-apartments/?propertyId=611791"

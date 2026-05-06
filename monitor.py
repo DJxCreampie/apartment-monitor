@@ -3,8 +3,9 @@ import os
 import re
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Set
+from typing import Dict, List, Set, Tuple
 
 import requests
 import yaml
@@ -18,7 +19,7 @@ DISCORD_MAX_MESSAGE_LEN = 2000
 FALSE_POSITIVES = {"details", "features", "home", "rental", "until"}
 
 
-def load_config() -> List[dict]:
+def load_config() -> Tuple[List[dict], bool]:
     if not CONFIG_PATH.exists():
         raise FileNotFoundError(f"Missing {CONFIG_PATH}")
 
@@ -40,7 +41,8 @@ def load_config() -> List[dict]:
             continue
         cleaned.append({"name": name, "url": url, "unit_regex": unit_regex})
 
-    return cleaned
+    send_heartbeat = bool(data.get("send_heartbeat", False))
+    return cleaned, send_heartbeat
 
 
 def load_seen_units() -> Dict[str, List[str]]:
@@ -144,15 +146,14 @@ def build_discord_message(property_name: str, new_units: List[str], removed_unit
     return f"{header}{new_line}\n\n{removed_line}{url_line}"
 
 
-def send_discord_alert(webhook_url: str, property_name: str, new_units: List[str], removed_units: List[str], url: str) -> None:
-    message = build_discord_message(property_name, new_units, removed_units, url)
+def send_discord_message(webhook_url: str, message: str, context: str) -> None:
     max_attempts = 4
 
     for attempt in range(1, max_attempts + 1):
         try:
             resp = requests.post(webhook_url, json={"content": message}, timeout=20)
         except requests.RequestException as exc:
-            print(f"Discord send failed for {property_name} (attempt {attempt}/{max_attempts}): {exc}", file=sys.stderr)
+            print(f"Discord send failed for {context} (attempt {attempt}/{max_attempts}): {exc}", file=sys.stderr)
             if attempt == max_attempts:
                 return
             time.sleep(min(2**attempt, 10))
@@ -169,12 +170,12 @@ def send_discord_alert(webhook_url: str, property_name: str, new_units: List[str
                 pass
 
             print(
-                f"Discord rate-limited for {property_name}; retrying in {retry_after:.2f}s "
+                f"Discord rate-limited for {context}; retrying in {retry_after:.2f}s "
                 f"(attempt {attempt}/{max_attempts}).",
                 file=sys.stderr,
             )
             if attempt == max_attempts:
-                print(f"Giving up Discord alert for {property_name} after repeated 429 responses.", file=sys.stderr)
+                print(f"Giving up Discord alert for {context} after repeated 429 responses.", file=sys.stderr)
                 return
             time.sleep(max(retry_after, 0.5))
             continue
@@ -182,8 +183,28 @@ def send_discord_alert(webhook_url: str, property_name: str, new_units: List[str
         if 200 <= resp.status_code < 300:
             return
 
-        print(f"Discord send failed for {property_name} with HTTP {resp.status_code}: {resp.text[:200]}", file=sys.stderr)
+        print(f"Discord send failed for {context} with HTTP {resp.status_code}: {resp.text[:200]}", file=sys.stderr)
         return
+
+
+def send_discord_alert(webhook_url: str, property_name: str, new_units: List[str], removed_units: List[str], url: str) -> None:
+    message = build_discord_message(property_name, new_units, removed_units, url)
+    send_discord_message(webhook_url, message, f"property {property_name}")
+
+
+def build_heartbeat_message(property_count: int) -> str:
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return (
+        "Apartment monitor heartbeat\n"
+        f"Checked: {property_count} properties\n"
+        f"Time: {timestamp}\n"
+        "No unit changes detected."
+    )
+
+
+def send_heartbeat(webhook_url: str, property_count: int) -> None:
+    message = build_heartbeat_message(property_count)
+    send_discord_message(webhook_url, message, "heartbeat")
 
 
 def main() -> int:
@@ -191,8 +212,10 @@ def main() -> int:
     if not webhook_url:
         print("DISCORD_WEBHOOK_URL is not set; skipping alerts.", file=sys.stderr)
 
-    properties = load_config()
+    properties, heartbeat_enabled = load_config()
     seen_units_by_url = {k: set(v) for k, v in load_seen_units().items()}
+
+    had_unit_changes = False
 
     for prop in properties:
         name = prop["name"]
@@ -208,11 +231,15 @@ def main() -> int:
         removed_units = sorted(prior_units - current_units)
 
         if new_units or removed_units:
+            had_unit_changes = True
             print(f"Availability changed for {name}. New: {new_units or ['None']} Removed: {removed_units or ['None']}")
             if webhook_url:
                 send_discord_alert(webhook_url, name, new_units, removed_units, url)
 
         seen_units_by_url[url] = current_units
+
+    if heartbeat_enabled and webhook_url and not had_unit_changes:
+        send_heartbeat(webhook_url, len(properties))
 
     save_seen_units(seen_units_by_url)
     return 0
