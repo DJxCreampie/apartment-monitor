@@ -3,4 +3,9 @@ send_heartbeat: false
 properties:
   - name: "MAA Riverside"
     url: "https://www.maac.com/available-apartments/?propertyId=611791"
+    parser: "maa"
     unit_regex: "\\b(?:Unit|Apt|Apartment)\\s*#?\\s*([A-Za-z0-9-]{2,8})\\b"
+
+  - name: "Alexan Buckhead Village"
+    url: "https://alexanbv.prospectportal.com/atlanta/alexan-buckhead-village/conventional/"
+    parser: "entrata"
