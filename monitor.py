@@ -6,6 +6,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Set, Tuple
+from urllib.parse import urljoin
 
 import requests
 import yaml
@@ -34,8 +35,9 @@ def load_config() -> Tuple[List[dict], bool]:
         name = item.get("name")
         url = item.get("url")
         unit_regex = item.get("unit_regex") or DEFAULT_UNIT_REGEX
+        parser = (item.get("parser") or "maa").strip().lower()
         if name and url:
-            cleaned.append({"name": name, "url": url, "unit_regex": unit_regex})
+            cleaned.append({"name": name, "url": url, "unit_regex": unit_regex, "parser": parser})
 
     return cleaned, bool(data.get("send_heartbeat", False))
 
@@ -103,6 +105,68 @@ def extract_visible_text(url: str) -> str:
             return page.inner_text("body") or ""
         finally:
             browser.close()
+
+
+def parse_maa_units(url: str, unit_regex: str) -> Dict[str, dict]:
+    text = extract_visible_text(url)
+    return parse_structured_units(text, unit_regex)
+
+
+def parse_entrata_units(url: str) -> Dict[str, dict]:
+    units: Dict[str, dict] = {}
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        page = browser.new_page()
+        try:
+            page.goto(url, wait_until="domcontentloaded", timeout=60_000)
+            try:
+                page.wait_for_load_state("networkidle", timeout=10_000)
+            except PlaywrightTimeoutError:
+                pass
+            page.wait_for_timeout(2500)
+
+            detail_links = set()
+            for href in page.eval_on_selector_all("a[href]", "els => els.map(e => e.getAttribute('href'))") or []:
+                if not href:
+                    continue
+                if "/floorplans/" in href.lower():
+                    detail_links.add(urljoin(url, href))
+
+            for detail_url in sorted(detail_links):
+                detail = browser.new_page()
+                try:
+                    detail.goto(detail_url, wait_until="domcontentloaded", timeout=60_000)
+                    try:
+                        detail.wait_for_load_state("networkidle", timeout=8_000)
+                    except PlaywrightTimeoutError:
+                        pass
+                    detail.wait_for_timeout(1200)
+
+                    for txt in detail.eval_on_selector_all("body *", "els => els.map(e => (e.innerText || '').trim()).filter(Boolean)") or []:
+                        line = re.sub(r"\s+", " ", txt).strip()
+                        if not line:
+                            continue
+                        unit_match = re.search(r"\b(?:Unit|Apt|Apartment)\s*#?\s*([A-Za-z0-9-]{1,10})\b", line, re.IGNORECASE)
+                        if not unit_match:
+                            continue
+                        uid = normalize_unit_candidate(unit_match.group(1))
+                        if not uid:
+                            continue
+
+                        unit_rent = ""
+                        for amt in re.findall(r"\$\s*[\d,]+(?:\.\d{1,2})?", line):
+                            n = normalize_rent_value(amt)
+                            if n and int(float(n)) >= 1000:
+                                unit_rent = f"${int(float(n)):,}"
+                                break
+                        if not unit_rent:
+                            continue
+                        units[uid] = normalize_unit_record(uid, unit_rent)
+                finally:
+                    detail.close()
+        finally:
+            browser.close()
+    return units
 
 
 def detect_units(page_text: str, unit_regex: str) -> Set[str]:
@@ -252,16 +316,21 @@ def main() -> int:
     had_changes = False
 
     for prop in properties:
-        name, url, unit_regex = prop["name"], prop["url"], prop["unit_regex"]
-        text = extract_visible_text(url)
-        current = parse_structured_units(text, unit_regex)
+        name, url, unit_regex, parser_name = prop["name"], prop["url"], prop["unit_regex"], prop["parser"]
+        print(f"Checking {name} using parser {parser_name}")
+        if parser_name == "entrata":
+            current = parse_entrata_units(url)
+        else:
+            current = parse_maa_units(url, unit_regex)
         prior = seen.get(url, {})
         prior_units, current_units = set(prior), set(current)
 
         if prior_units and not current_units:
             time.sleep(5)
-            retry_text = extract_visible_text(url)
-            current = parse_structured_units(retry_text, unit_regex)
+            if parser_name == "entrata":
+                current = parse_entrata_units(url)
+            else:
+                current = parse_maa_units(url, unit_regex)
             current_units = set(current)
             if not current_units:
                 if webhook_url:
