@@ -21,6 +21,8 @@ DISCORD_INTER_MESSAGE_DELAY_SECONDS = 0.7
 FALSE_POSITIVES = {"details", "features", "home", "rental", "until"}
 SUSPICIOUS_REMOVAL_RATIO = 0.80
 RENT_PATTERN = re.compile(r"\$[\d,]+")
+MAX_EMPTY_RETRY_ATTEMPTS = 5
+EMPTY_RETRY_DELAY_SECONDS = 5
 
 
 def load_config() -> Tuple[List[dict], bool]:
@@ -294,8 +296,14 @@ def build_heartbeat_message(property_count: int) -> str:
 
 
 def send_anomaly_warning(webhook_url: str, property_name: str, url: str) -> None:
-    msg = f"Apartment monitor warning at {property_name}: no units were detected, but prior units existed. Preserving previous snapshot because this may be a scrape/render failure. URL: {url}"
+    msg = f"Apartment monitor warning at {property_name}: no units were detected after {MAX_EMPTY_RETRY_ATTEMPTS} attempts, but prior units existed. Preserving previous snapshot. URL: {url}"
     send_discord_message(webhook_url, msg, f"warning {property_name}")
+
+
+def scrape_property_units(url: str, unit_regex: str, parser_name: str) -> Dict[str, dict]:
+    if parser_name == "entrata":
+        return parse_entrata_units(url)
+    return parse_maa_units(url, unit_regex)
 
 
 def main() -> int:
@@ -307,20 +315,18 @@ def main() -> int:
     for prop in properties:
         name, url, unit_regex, parser_name = prop["name"], prop["url"], prop["unit_regex"], prop["parser"]
         print(f"Checking {name} using parser {parser_name}")
-        if parser_name == "entrata":
-            current = parse_entrata_units(url)
-        else:
-            current = parse_maa_units(url, unit_regex)
+        current = scrape_property_units(url, unit_regex, parser_name)
         prior = seen.get(url, {})
         prior_units, current_units = set(prior), set(current)
 
         if prior_units and not current_units:
-            time.sleep(5)
-            if parser_name == "entrata":
-                current = parse_entrata_units(url)
-            else:
-                current = parse_maa_units(url, unit_regex)
-            current_units = set(current)
+            for attempt in range(2, MAX_EMPTY_RETRY_ATTEMPTS + 1):
+                print(f"No units detected for {name}, retrying attempt {attempt}/{MAX_EMPTY_RETRY_ATTEMPTS}...")
+                time.sleep(EMPTY_RETRY_DELAY_SECONDS)
+                current = scrape_property_units(url, unit_regex, parser_name)
+                current_units = set(current)
+                if current_units:
+                    break
             if not current_units:
                 if webhook_url:
                     send_anomaly_warning(webhook_url, name, url)
