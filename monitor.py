@@ -242,14 +242,7 @@ def build_unit_event_message(event_type: str, record: dict, previous_rent: str =
 
     if unit:
         lines.append(f"Unit: {unit}")
-    if event_type == "Price Change":
-        pr = truncate_field(previous_rent, 80)
-        cr = truncate_field(current_rent, 80)
-        if pr:
-            lines.append(f"Previous Rent: {pr}")
-        if cr:
-            lines.append(f"Current Rent: {cr}")
-    elif rent:
+    if rent:
         lines.append(f"Rent: {rent}")
 
     lines.append("")
@@ -284,14 +277,10 @@ def send_discord_message(webhook_url: str, message: str, context: str) -> None:
         return
 
 
-def send_discord_events(webhook_url: str, property_name: str, new_records: List[dict], removed_records: List[dict], rent_events: List[dict], url: str) -> None:
+def send_discord_events(webhook_url: str, property_name: str, new_records: List[dict], url: str) -> None:
     queue: List[tuple[str, str]] = []
     for r in new_records:
         queue.append((build_unit_event_message("Addition", r), f"addition {property_name}"))
-    for r in removed_records:
-        queue.append((build_unit_event_message("Removal", r), f"removal {property_name}"))
-    for e in rent_events:
-        queue.append((build_unit_event_message("Price Change", e["record"], e["previous_rent"], e["current_rent"]), f"price-change {property_name}"))
     queue.append((f"URL used for analysis:\n{url}", f"url {property_name}"))
 
     for msg, ctx in queue:
@@ -340,22 +329,16 @@ def main() -> int:
         new_units = sorted(current_units - prior_units)
         removed_units = sorted(prior_units - current_units)
 
-        rent_events: List[dict] = []
-        for u in sorted(current_units & prior_units):
-            pr = normalize_rent_value(prior[u].get("rent", ""))
-            cr = normalize_rent_value(current[u].get("rent", ""))
-            if pr and cr and pr != cr:
-                rent_events.append({"record": current[u], "previous_rent": prior[u].get("rent", ""), "current_rent": current[u].get("rent", "")})
 
         if prior_units and (len(removed_units) / len(prior_units)) > SUSPICIOUS_REMOVAL_RATIO:
             if webhook_url:
                 send_anomaly_warning(webhook_url, name, url)
             continue
 
-        if new_units or removed_units or rent_events:
+        if new_units:
             had_changes = True
             if webhook_url:
-                send_discord_events(webhook_url, name, [current[u] for u in new_units], [prior[u] for u in removed_units], rent_events, url)
+                send_discord_events(webhook_url, name, [current[u] for u in new_units], url)
 
         seen[url] = current
 
